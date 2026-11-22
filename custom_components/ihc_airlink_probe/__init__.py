@@ -36,7 +36,23 @@ def _read_devices(ihc_controller) -> dict:
         for item in xdoc.iter()
         if _local(item.tag) == "arrayItem"
     ]
-    return {"devices": devices, "raw": ET.tostring(xdoc, encoding="unicode")}
+    products = []
+    project = ihc_controller.get_project()
+    if project:
+        root = ET.fromstring(project)  # noqa: S314
+        parents = {child: parent for parent in root.iter() for child in parent}
+        for el in root.iter():
+            if _local(el.tag).startswith("product_airlink"):
+                names = []
+                node = parents.get(el)
+                while node is not None:
+                    if "name" in node.attrib:
+                        names.append(node.attrib["name"])
+                    node = parents.get(node)
+                products.append(
+                    {"attrib": dict(el.attrib), "path": list(reversed(names))}
+                )
+    return {"devices": devices, "airlink_products": products}
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
